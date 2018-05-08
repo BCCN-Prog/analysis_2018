@@ -44,7 +44,7 @@
 
 import numpy as np
 
-def compare_time_series(prediction, true, days_ahead, method = 'variance', data_type = 'temperature'):
+def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature'):
 
     # Compares predicted and true time series and produces a measure of similarity.
     # This measure can judge how good the prediction was.
@@ -90,14 +90,14 @@ def variance(prediction, true, data_type):
     # scale variance by mean
     measure = var/true.mean()
     # scale result according to what data type we have
-    if data_type = 'temperature':
-        b = 1
-    else if data_type = 'humidity':
-        b = 1
-    else if data_type = 'wind':
-        b = 1
-    else if data_type = 'precipitation':
-        b = 1
+    if data_type == 'temperature':
+        b = 2
+    elif data_type == 'humidity':
+        b = 3
+    elif data_type == 'wind':
+        b = 2
+    elif data_type == 'precipitation':
+        b = .6
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*measure)
 
@@ -113,14 +113,14 @@ def norm1(prediction, true, data_type):
     # scale variance by mean
     measure = norm/true.mean()
     # scale result according to what data type we have
-    if data_type = 'temperature':
-        b = 1
-    else if data_type = 'humidity':
-        b = 1
-    else if data_type = 'wind':
-        b = 1
-    else if data_type = 'precipitation':
-        b = 1
+    if data_type == 'temperature':
+        b = 2.5
+    elif data_type == 'humidity':
+        b = 4
+    elif data_type == 'wind':
+        b = 2.5
+    elif data_type == 'precipitation':
+        b = .8
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*measure)
 
@@ -138,14 +138,14 @@ def outlier(prediction, true, data_type):
     # scale outlier by mean
     measure = outlier/true.mean()
     # scale result according to what data type we have
-    if data_type = 'temperature':
+    if data_type == 'temperature':
+        b = .5
+    elif data_type == 'humidity':
         b = 1
-    else if data_type = 'humidity':
-        b = 1
-    else if data_type = 'wind':
-        b = 1
-    else if data_type = 'precipitation':
-        b = 1
+    elif data_type == 'wind':
+        b = .5
+    elif data_type == 'precipitation':
+        b = .3
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*measure)
 
