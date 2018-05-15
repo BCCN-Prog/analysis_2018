@@ -42,7 +42,13 @@
 # especially as n grows a lot (sqrt(n) was tried but it is too fast). Not sure if
 # such a prediction exists at all
 
+# Grigoriy Vevyurko found the solution:
+# https://math.stackexchange.com/questions/89030/expectation-of-the-maximum-of-gaussian-random-variables
+# find the probability distibution of all measurements being below a value, then the complementary, then get the pdf and finaly compute the mean
+# on this and use it to scale the measure
+
 import numpy as np
+from scipy.stats import norm
 
 def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature'):
 
@@ -135,8 +141,15 @@ def outlier(prediction, true, data_type):
     # is near perfect for the other days
 
     outlier = max(abs(prediction-true))
+    # unbiased variance estimator
+    n = len(prediction)
+    var_est = np.var(prediction-true,ddof = 1)
+    # expected outlier if we assume that the difference is gaussian noise
+    exp_outlier = var_est*np.sqrt(np.log10(n**2/(2*np.pi*np.log10(n**2/(2*np.pi)))))*(1+0.577/np.log10(n))
+    # scale outlier by expected outlier for this size of arrays
+    outlier_sc = outlier*(4*var_est/exp_outlier)
     # scale outlier by mean
-    measure = outlier/true.mean()
+    measure = outlier_sc/true.mean()
     # scale result according to what data type we have
     if data_type == 'temperature':
         b = .5
@@ -150,3 +163,17 @@ def outlier(prediction, true, data_type):
     measure = np.tanh(b*measure)
 
     return measure, outlier
+
+def convert_rainfall(prob_rain,mean,variance):
+    # prob_rain is the probability of rain as predicted by the weather forecast
+    # mean is the mean rainfall in mm (for the month?), taken fron the data or computed on the data
+    # for this specific station
+    # variance is the variance of the rainfall in mm for the month
+
+    # fit with a gaussian distribution
+    rainfall = mean + variance*norm.ppf(prob_rain)
+    # limit values to logical ones
+    rainfall = max(min(rainfall, mean + 3*variance), 0)
+    if prob_rain<.1:
+        rainfall = 0
+    return rainfall
