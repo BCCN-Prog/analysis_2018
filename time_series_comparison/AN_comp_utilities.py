@@ -49,6 +49,10 @@
 
 import numpy as np
 from scipy.stats import norm
+import scipy, scipy.stats
+import matplotlib.pyplot as plt
+from sklearn.metrics import log_loss
+
 
 def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature'):
 
@@ -62,7 +66,7 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
     # method : measure of similarity used
     # data_type : data type of arrays. Changes the way the measure of similarity is scaled.
     # Could be 'temperature' in degrees Celcius, 'humidity' as a percentage,
-    # 'precipitation' in mm, 'wind' in km/h
+    # 'precipitation' in mm, 'wind' in km/h or 'prob_rain' in percent (boolean matrix for true)
 
     # Out:
     # measure : a measure of similarity as a single number between 0 and 1. scaling of the measure
@@ -104,6 +108,8 @@ def variance(prediction, true, data_type):
         b = 2
     elif data_type == 'precipitation':
         b = .6
+    else:
+        print('Not appropriate data type!')
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*measure)
 
@@ -127,6 +133,9 @@ def norm1(prediction, true, data_type):
         b = 2.5
     elif data_type == 'precipitation':
         b = .8
+    else:
+        print('Not appropriate data type!')
+        return 0
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*measure)
 
@@ -159,12 +168,31 @@ def outlier(prediction, true, data_type):
         b = .5
     elif data_type == 'precipitation':
         b = .3
+    else:
+        print('Not appropriate data type!')
+        return 0
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*measure)
 
     return measure, outlier
 
+def cross_entropy(prediction, true, data_type):
+    if data_type == 'prob_rain':
+        b = .02
+    else:
+        print('Not appropriate data type!')
+        return 0
+
+    c_entropy =  log_loss(true,prediction,normalize=True)
+
+    # convert result to a value between 0 and 1, using tanh
+    measure = np.tanh(b*c_entropy)
+    return measure, c_entropy
+
 def convert_rainfall(prob_rain,mean,variance):
+    # This function will probably will not be used since we have data from both
+    # probabilities and mm
+
     # prob_rain is the probability of rain as predicted by the weather forecast
     # mean is the mean rainfall in mm (for the month?), taken fron the data or computed on the data
     # for this specific station
@@ -177,3 +205,26 @@ def convert_rainfall(prob_rain,mean,variance):
     if prob_rain<.1:
         rainfall = 0
     return rainfall
+
+def histogram_probability_of_rain(prob_rain,true):
+    # This function compares the forecasted probability of rain histogram with then
+    # actual boolean outcomes (rain or no rain) the next day. It does not make a distinction
+    # based on how much (in mm) it rained!
+
+    # the days should be picked so that the prediction is within a certain % interval (eg 5-15 %)
+    # and see how the bernolli with p = days with rain/total days looks like
+
+    # prob_rain is the probability of rain as predicted by the weather forecast
+    # true is the array of boolean values that denote if it rained or not it the corresponding day
+
+    # returns binomial distribution and prob_rain, ready to plot
+
+    # Compute the probability of rain at any given day
+    p = np.count_nonzero(true)/len(true)
+    x = scipy.linspace(0,len(true),len(true)+1)
+    pmf = scipy.stats.binom.pmf(x,len(true),p)
+    pmf = pmf*len(true)
+    plt.plot(x/len(true),pmf)
+    prob_rain = prob_rain/100
+    plt.hist(prob_rain,len(true)//10,normed='True')
+    return prob_rain, pmf
