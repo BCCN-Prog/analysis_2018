@@ -54,7 +54,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import log_loss
 
 
-def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature'):
+def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature', num_excuse = 0, threshold = 0):
 
     # Compares predicted and true time series and produces a measure of similarity.
     # This measure can judge how good the prediction was.
@@ -67,12 +67,15 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
     # data_type : data type of arrays. Changes the way the measure of similarity is scaled.
     # Could be 'temperature' in degrees Celcius, 'humidity' as a percentage,
     # 'precipitation' in mm, 'wind' in km/h or 'prob_rain' in percent (boolean matrix for true)
+    # num_excuse : number of biggest outliers to be removed before computing the measures
+    # threshold : difference in corresponding values that is deamed to be unacceptable
 
     # Out:
     # measure : a measure of similarity as a single number between 0 and 1. scaling of the measure
     # is method-dependent, so it will be done inside the function for each method
     # value : the exact value of the measure used, if such exists (unbiased measure)
     # differences: point-wise differences for plotting purposes
+    # perc_over : percentage of measurements that different more that the acceptable threshold
 
     # It is important to tell apart the predicted time series from the true one,
     # because not all measures of similarity are symmetric (non-metric operators)
@@ -81,7 +84,8 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
         print('Arrays to be compared do not have the same length!')
         return 0
 
-    measure, value = method(prediction, true, data_type)
+    pred, tr, ind = excuse(prediction, true, num_excuse)
+    measure, value = method(pred, tr, data_type)
 
     # here a way to scale measure based on days_ahead (independently of data_type?)
     # bends the measure which is between 0 and 1 so that prediction of many days ahead
@@ -96,7 +100,12 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
 
     differences = prediction - true
 
-    return measure, value, differences
+    perc_over = 0
+    if threshold > 0:
+        over = abs(differences) > threshold
+        perc_over = sum(over)/len(over)
+
+    return measure, value, differences, perc_over
 
 
 
@@ -247,3 +256,20 @@ def plot_histograms_rain(prob_rain,true):
         mask = np.logical_and(prob_rain>intervals[i],prob_rain<intervals[i+1])
         histogram_probability_of_rain(prob_rain[mask],true[mask])
     return 0
+
+
+def excuse(prediction, true, num_excuse):
+    # remove measurements that have the biggest difference between the predicted and true time series
+    # Allows assessment of time series prediction independent of possible local abnormalities of
+    # the prediction (eg caused by an extreme weather condition that was not accounted for in the model)
+    # or outliers in general
+
+    # returns predicted and true time series without these measurements
+    if num_excuse == 0:
+        return prediction, true, -1
+
+    abs_diff = abs(prediction - true)
+    ind = abs_diff.argsort()[-num_excuse:][::-1]
+    prediction =  np.delete(prediction, ind)
+    true =  np.delete(true, ind)
+    return prediction, true, ind

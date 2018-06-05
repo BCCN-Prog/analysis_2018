@@ -29,22 +29,22 @@ pred = 0
 data_type = 'temperature'
 days_ahead = 1
 
-measure, value, differences = utils.compare_time_series(pred,real,days_ahead,utils.variance,data_type)
+measure, value, differences, per = utils.compare_time_series(prediction,true,days_ahead,utils.variance,data_type)
 print('Variance')
 print(measure)
 print(value)
 
-measure, value, differences = utils.compare_time_series(pred,real,days_ahead,utils.norm1,data_type)
+measure, value, differences, per = utils.compare_time_series(prediction,true,days_ahead,utils.norm1,data_type)
 print('Norm1')
 print(measure)
 print(value)
 
-measure, value, differences = utils.compare_time_series(pred,real,days_ahead,utils.outlier,data_type)
+measure, value, differences, per = utils.compare_time_series(prediction,true,days_ahead,utils.outlier,data_type)
 print('Outlier')
 print(measure)
 print(value)
 
-measure, value, differences = utils.compare_time_series(prob_rain,rain,1,utils.cross_entropy,'prob_rain')
+measure, value, differences, per = utils.compare_time_series(prob_rain,rain,1,utils.cross_entropy,'prob_rain')
 print('Cross-entropy')
 print(measure)
 print(value)
