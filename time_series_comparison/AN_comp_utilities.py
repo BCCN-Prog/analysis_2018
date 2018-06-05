@@ -72,6 +72,7 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
     # measure : a measure of similarity as a single number between 0 and 1. scaling of the measure
     # is method-dependent, so it will be done inside the function for each method
     # value : the exact value of the measure used, if such exists (unbiased measure)
+    # differences: point-wise differences for plotting purposes
 
     # It is important to tell apart the predicted time series from the true one,
     # because not all measures of similarity are symmetric (non-metric operators)
@@ -85,11 +86,17 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
     # here a way to scale measure based on days_ahead (independently of data_type?)
     # bends the measure which is between 0 and 1 so that prediction of many days ahead
     # with the same performance based on 'method' are viewed in a better light
-    # maybe forth root is a little bit harsh
+    # maybe fourth root is a little bit harsh
 
     measure = measure ** np.sqrt(np.sqrt(days_ahead))
 
-    return measure, value
+    if data_type == 'prob_rain':
+        # convert to percents
+        true = true*100
+
+    differences = prediction - true
+
+    return measure, value, differences
 
 
 
@@ -220,11 +227,23 @@ def histogram_probability_of_rain(prob_rain,true):
     # returns binomial distribution and prob_rain, ready to plot
 
     # Compute the probability of rain at any given day
+    if len(true)==0:
+        return 0
     p = np.count_nonzero(true)/len(true)
     x = scipy.linspace(0,len(true),len(true)+1)
     pmf = scipy.stats.binom.pmf(x,len(true),p)
     pmf = pmf*len(true)
+    plt.figure()
     plt.plot(x/len(true),pmf)
     prob_rain = prob_rain/100
-    plt.hist(prob_rain,len(true)//10,normed='True')
+    plt.hist(prob_rain,len(true)//10+1,normed='True')
     return prob_rain, pmf
+
+def plot_histograms_rain(prob_rain,true):
+    # example of running histogram_probability_of_rain for certain intervals
+    intervals = [0,5,15,25,35,45,55,65,75,85,95,100]
+
+    for i in range(len(intervals)-1):
+        mask = np.logical_and(prob_rain>intervals[i],prob_rain<intervals[i+1])
+        histogram_probability_of_rain(prob_rain[mask],true[mask])
+    return 0

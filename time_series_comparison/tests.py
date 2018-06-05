@@ -5,10 +5,10 @@ import numpy as np
 # create random weathor conditions to scale parameters in methods according to
 # what is subjectively assumed a "good prediction"
 
-a = np.random.normal(1.5,2,1000)
-a[a<0] = 0
-b = a + np.random.normal(0,.5,1000)
-b[b<0] = 0
+true = np.random.normal(1.5,2,1000)
+true[true<0] = 0
+prediction = true + np.random.normal(0,.5,1000)
+prediction[prediction<0] = 0
 
 # not realistic prediction data
 p = 0.5
@@ -22,25 +22,31 @@ prob_rain = rain*100 + np.random.normal(0,15,1000)
 prob_rain[prob_rain<0] = 0
 prob_rain[prob_rain>100] = 100
 
+# load and use real data
 
-measure, value = utils.compare_time_series(a,b,1,utils.variance,'precipitation')
+real = 0
+pred = 0
+data_type = 'temperature'
+days_ahead = 1
+
+measure, value, differences = utils.compare_time_series(pred,real,days_ahead,utils.variance,data_type)
 print('Variance')
 print(measure)
 print(value)
 
-measure, value = utils.compare_time_series(a,b,1,utils.norm1,'precipitation')
+measure, value, differences = utils.compare_time_series(pred,real,days_ahead,utils.norm1,data_type)
 print('Norm1')
 print(measure)
 print(value)
 
-measure, value = utils.compare_time_series(a,b,1,utils.outlier,'precipitation')
+measure, value, differences = utils.compare_time_series(pred,real,days_ahead,utils.outlier,data_type)
 print('Outlier')
 print(measure)
 print(value)
 
-measure, value = utils.compare_time_series(prob_rain,rain,1,utils.cross_entropy,'prob_rain')
-print('Outlier')
+measure, value, differences = utils.compare_time_series(prob_rain,rain,1,utils.cross_entropy,'prob_rain')
+print('Cross-entropy')
 print(measure)
 print(value)
 
-utils.histogram_probability_of_rain(prob_rain_sham,rain)
+utils.plot_histograms_rain(prob_rain,rain)
