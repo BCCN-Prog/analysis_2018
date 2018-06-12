@@ -52,6 +52,7 @@ from scipy.stats import norm
 import scipy, scipy.stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import log_loss
+import scipy.stats
 
 
 def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature', num_excuse = 0, threshold = 0):
@@ -273,3 +274,37 @@ def excuse(prediction, true, num_excuse):
     prediction =  np.delete(prediction, ind)
     true =  np.delete(true, ind)
     return prediction, true, ind
+
+def fit_distr(data,data_type = 'temperature',fit_with='norm'):
+
+    # fits a predifined distribution to the data. Used to fit a distribution on the difference of
+    # predicted - true data, and plot the result
+
+    # data is the difference of predicted - true data
+    # data type can be 'temperature' in degrees Celcius, 'humidity' as a percentage,
+    # 'precipitation' in mm, 'wind' in km/h
+
+    # returns the fitted distribution pdf_fitted and a vector x to plot on the x axis
+
+    if data_type == 'temperature':
+        xlabel = 'Temperature [degrees Celcius]'
+    elif data_type == 'humidity':
+        xlabel = 'Humidity [%]'
+    elif data_type == 'wind':
+        xlabel = 'Wind speed [km/h]'
+    elif data_type == 'precipitation':
+        xlabel = 'Precipitation [mm/m^2]'
+
+    x = np.linspace(min(data),max(data),num=1000)
+    size = len(x)
+    h = plt.hist(data, bins=np.linspace(min(data), max(data), len(data)//100), normed = 'True')
+
+    dist = getattr(scipy.stats, fit_with)
+    param = dist.fit(data)
+    pdf_fitted = dist.pdf(x, *param[:-2], loc=param[-2], scale=param[-1])
+    plt.plot(x,pdf_fitted, label=fit_with)
+    plt.legend(loc='upper right')
+    plt.xlabel(xlabel)
+    plt.title('Distribution of difference between prediction and true value')
+    plt.show()
+    return x, pdf_fitted

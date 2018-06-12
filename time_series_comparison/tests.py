@@ -49,4 +49,6 @@ print('Cross-entropy')
 print(measure)
 print(value)
 
+utils.fit_distr(differences,data_type = 'temperature',fit_with='norm')
+
 utils.plot_histograms_rain(prob_rain,rain)
