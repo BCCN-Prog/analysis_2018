@@ -52,38 +52,41 @@ from scipy.stats import norm
 import scipy, scipy.stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import log_loss
-import scipy.stats
-
+import math
 
 def compare_time_series(prediction, true, days_ahead, method, data_type = 'temperature', num_excuse = 0, threshold = 0):
+    """
+    Compares predicted and true time series and produces a measure of similarity.
+    This measure can judge how good the prediction was.
 
-    # Compares predicted and true time series and produces a measure of similarity.
-    # This measure can judge how good the prediction was.
+    Input:
+    -prediction : array of length n with predicted values for a specific number of days ahead
+    -true : array of same length n with true values
+    -days_ahead : how many days ahead was the prediction made? Final measure is weighted with this
+    -method : measure of similarity used
+    -data_type : data type of arrays. Changes the way the measure of similarity is scaled.
+    Could be 'temperature' in degrees Celcius, 'humidity' as a percentage,
+    'precipitation' in mm, 'wind' in km/h or 'prob_rain' in percent (boolean matrix for true)
+    -num_excuse : number of biggest outliers to be removed before computing the measures
+    -threshold : difference in corresponding values that is deamed to be unacceptable
 
-    # In:
-    # prediction : array of length n with predicted values for a specific number of days ahead
-    # true : array of same length n with true values
-    # days_ahead : how many days ahead was the prediction made? Could weight final measure with this
-    # method : measure of similarity used
-    # data_type : data type of arrays. Changes the way the measure of similarity is scaled.
-    # Could be 'temperature' in degrees Celcius, 'humidity' as a percentage,
-    # 'precipitation' in mm, 'wind' in km/h or 'prob_rain' in percent (boolean matrix for true)
-    # num_excuse : number of biggest outliers to be removed before computing the measures
-    # threshold : difference in corresponding values that is deamed to be unacceptable
+    Output:
+    -measure : a measure of similarity as a single number between 0 and 1. scaling of the measure
+    is method-dependent, so it will be done inside the function for each method
+    -value : the exact value of the measure used, if such exists (unbiased measure)
+    -differences: point-wise differences for plotting purposes
+    -perc_over : percentage of measurements that different more that the acceptable threshold
 
-    # Out:
-    # measure : a measure of similarity as a single number between 0 and 1. scaling of the measure
-    # is method-dependent, so it will be done inside the function for each method
-    # value : the exact value of the measure used, if such exists (unbiased measure)
-    # differences: point-wise differences for plotting purposes
-    # perc_over : percentage of measurements that different more that the acceptable threshold
-
-    # It is important to tell apart the predicted time series from the true one,
-    # because not all measures of similarity are symmetric (non-metric operators)
+    It is important to tell apart the predicted time series from the true one,
+    because not all measures of similarity are symmetric (non-metric operators)
+    """
+    supports_neg = ['temperature']
 
     if len(prediction) != len(true):
         print('Arrays to be compared do not have the same length!')
         return 0
+
+    prediction, true = preprocess(prediction, true, not (data_type in supports_neg))
 
     pred, tr, ind = excuse(prediction, true, num_excuse)
     measure, value = method(pred, tr, data_type)
@@ -93,7 +96,7 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
     # with the same performance based on 'method' are viewed in a better light
     # maybe fourth root is a little bit harsh
 
-    measure = measure ** np.sqrt(np.sqrt(days_ahead))
+    measure = measure ** np.power(days_ahead,1/4)
 
     if data_type == 'prob_rain':
         # convert to percents
@@ -109,9 +112,27 @@ def compare_time_series(prediction, true, days_ahead, method, data_type = 'tempe
     return measure, value, differences, perc_over
 
 
+def preprocess(prediction, true, discard_neg = 0):
+    """General preprocessing considerations.
+
+    -Removes NaN values.
+    -Removes negative values when data type does not support negative values.
+    """
+
+    ind = []
+    for i in range(len(prediction)):
+        if math.isnan(prediction[i]) or math.isnan(true[i]) or (discard_neg and (prediction[i]<0 or true[i]<0)):
+            ind.append(i)
+
+    if ind:
+        prediction =  np.delete(prediction, ind)
+        true =  np.delete(true, ind)
+
+    return prediction, true
+
 
 def variance(prediction, true, data_type):
-    # find variance as a global descriptive measure of similarity
+    """Finds variance as a global descriptive measure of similarity"""
 
     var = np.sqrt( ((prediction - true) ** 2).mean() )
     # scale variance by mean
@@ -134,9 +155,11 @@ def variance(prediction, true, data_type):
 
 
 def norm1(prediction, true, data_type):
-    # find first norm as a global descriptive measure of similarity
-    # Punishes outliers less severely, not the optimal choice if the difference
-    # signal is gaussian noise (which it should be)
+    """
+    Find first norm as a global descriptive measure of similarity.
+    Punishes outliers less severely, not the optimal choice if the difference
+    signal is gaussian noise (which it should be)
+    """
 
     norm = abs(prediction - true).mean()
     # scale variance by mean
@@ -160,11 +183,13 @@ def norm1(prediction, true, data_type):
 
 
 def outlier(prediction, true, data_type):
-    # find the biggest outlier as a local descriptive measure of similarity
-    # With weather, we are interested in a model that is not necessarily very exact,
-    # but when it fails it does not fail hard. For example, we do not want a prediction
-    # for a single day to be zero precipitation, and it turns out raining, even if this model
-    # is near perfect for the other days
+    """
+    Finds the biggest outlier as a local descriptive measure of similarity.
+    With weather, we are interested in a model that is not necessarily very exact,
+    but when it fails it does not fail hard. For example, we do not want a prediction
+    for a single day to be zero precipitation, and it turns out raining, even if this model
+    is near perfect for the other days
+    """
 
     outlier = max(abs(prediction-true))
     # unbiased variance estimator
@@ -193,6 +218,7 @@ def outlier(prediction, true, data_type):
 
     return measure, outlier
 
+
 def cross_entropy(prediction, true, data_type):
     if data_type == 'prob_rain':
         b = .02
@@ -206,15 +232,17 @@ def cross_entropy(prediction, true, data_type):
     measure = np.tanh(b*c_entropy)
     return measure, c_entropy
 
+
 def convert_rainfall(prob_rain,mean,variance):
-    # This function will probably will not be used since we have data from both
-    # probabilities and mm
+    """
+    This function will probably will not be used since we have data from both
+    probabilities and mm
 
-    # prob_rain is the probability of rain as predicted by the weather forecast
-    # mean is the mean rainfall in mm (for the month?), taken fron the data or computed on the data
-    # for this specific station
-    # variance is the variance of the rainfall in mm for the month
-
+    -prob_rain is the probability of rain as predicted by the weather forecast
+    -mean is the mean rainfall in mm (for the month?), taken fron the data or computed on the data
+    for this specific station
+    -variance is the variance of the rainfall in mm for the month
+    """
     # fit with a gaussian distribution
     rainfall = mean + variance*norm.ppf(prob_rain)
     # limit values to logical ones
@@ -223,19 +251,21 @@ def convert_rainfall(prob_rain,mean,variance):
         rainfall = 0
     return rainfall
 
+
 def histogram_probability_of_rain(prob_rain,true):
-    # This function compares the forecasted probability of rain histogram with then
-    # actual boolean outcomes (rain or no rain) the next day. It does not make a distinction
-    # based on how much (in mm) it rained!
+    """
+    Compares the forecasted probability of rain histogram with then
+    actual boolean outcomes (rain or no rain) the next day. It does not make a distinction
+    based on how much (in mm) it rained!
 
-    # the days should be picked so that the prediction is within a certain % interval (eg 5-15 %)
-    # and see how the bernolli with p = days with rain/total days looks like
+    The days should be picked so that the prediction is within a certain % interval (eg 5-15 %)
+    and see how the bernolli with p = days with rain/total days looks like.
 
-    # prob_rain is the probability of rain as predicted by the weather forecast
-    # true is the array of boolean values that denote if it rained or not it the corresponding day
+    -prob_rain is the probability of rain as predicted by the weather forecast
+    -true is the array of boolean values that denote if it rained or not it the corresponding day
 
-    # returns binomial distribution and prob_rain, ready to plot
-
+    Returns binomial distribution and prob_rain, ready to plot.
+    """
     # Compute the probability of rain at any given day
     if len(true)==0:
         return 0
@@ -249,8 +279,10 @@ def histogram_probability_of_rain(prob_rain,true):
     plt.hist(prob_rain,len(true)//10+1,normed='True')
     return prob_rain, pmf
 
+
 def plot_histograms_rain(prob_rain,true):
-    # example of running histogram_probability_of_rain for certain intervals
+    """ Example of running histogram_probability_of_rain for certain intervals """
+
     intervals = [0,5,15,25,35,45,55,65,75,85,95,100]
 
     for i in range(len(intervals)-1):
@@ -260,12 +292,14 @@ def plot_histograms_rain(prob_rain,true):
 
 
 def excuse(prediction, true, num_excuse):
-    # remove measurements that have the biggest difference between the predicted and true time series
-    # Allows assessment of time series prediction independent of possible local abnormalities of
-    # the prediction (eg caused by an extreme weather condition that was not accounted for in the model)
-    # or outliers in general
+    """
+    Removes measurements that have the biggest difference between the predicted and true time series
+    Allows assessment of time series prediction independent of possible local abnormalities of
+    the prediction (eg caused by an extreme weather condition that was not accounted for in the model)
+    or outliers in general
 
-    # returns predicted and true time series without these measurements
+    Returns predicted and true time series without these measurements
+    """
     if num_excuse == 0:
         return prediction, true, -1
 
@@ -275,16 +309,18 @@ def excuse(prediction, true, num_excuse):
     true =  np.delete(true, ind)
     return prediction, true, ind
 
+
 def fit_distr(data,data_type = 'temperature',fit_with='norm'):
+    """
+    Fits a predifined distribution to the data. Used to fit a distribution on the difference of
+    predicted - true data, and plot the result
 
-    # fits a predifined distribution to the data. Used to fit a distribution on the difference of
-    # predicted - true data, and plot the result
+    -data is the difference of predicted - true data
+    -data type can be 'temperature' in degrees Celcius, 'humidity' as a percentage,
+    'precipitation' in mm, 'wind' in km/h
 
-    # data is the difference of predicted - true data
-    # data type can be 'temperature' in degrees Celcius, 'humidity' as a percentage,
-    # 'precipitation' in mm, 'wind' in km/h
-
-    # returns the fitted distribution pdf_fitted and a vector x to plot on the x axis
+    Returns the fitted distribution pdf_fitted and a vector x to plot on the x axis
+    """
 
     if data_type == 'temperature':
         xlabel = 'Temperature [degrees Celcius]'
