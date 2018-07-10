@@ -94,7 +94,7 @@ def compare_time_series(prediction, real, days_ahead, method,\
         print('Arrays to be compared do not have the same length!')
         return 0
 
-    prediction, real = preprocess(prediction, real, not \
+    prediction, real = preprocess(prediction, real, \
     (data_type in supports_neg))
 
     pred, tr, ind = excuse(prediction, real, num_excuse)
@@ -132,6 +132,9 @@ def preprocess(prediction, real, discard_neg = 0):
 
     ind = np.arange(0,len(prediction))[mask]
 
+    pred = prediction
+    r = real
+    
     if ind.size:
         pred =  np.delete(cp.deepcopy(prediction), ind)
         r =  np.delete(cp.deepcopy(real), ind)
@@ -235,7 +238,7 @@ def cross_entropy(prediction, real, data_type):
         print('Not appropriate data type!')
         return 0
 
-    c_entropy =  log_loss(real,prediction,normalize=real)
+    c_entropy =  log_loss(real,prediction,normalize=True)
 
     # convert result to a value between 0 and 1, using tanh
     measure = np.tanh(b*c_entropy)
@@ -288,13 +291,14 @@ def histogram_probability_of_rain(prob_rain,real):
     plt.plot(x/len(real),pmf)
     prob_rain = prob_rain/100
     plt.hist(prob_rain,len(real)//10+1,normed='real')
+    plt.show()
     return prob_rain, pmf
 
 
 def plot_histograms_rain(prob_rain,real):
     " Example of running histogram_probability_of_rain for certain intervals "
 
-    intervals = [0,5,15,25,35,45,55,65,75,85,95,100]
+    intervals = np.arange(0,105,5)
 
     for i in range(len(intervals)-1):
         mask = np.logical_and(prob_rain>intervals[i],prob_rain<intervals[i+1])
